@@ -2,11 +2,17 @@
 #include <fstream>
 
 typedef struct {
+    int value;
+    int pos_x;
+    int pos_y;
+} S_GRID_CELL;
+
+typedef struct {
     int pos_x;
     int pos_y;
     int end_x;
     int end_y;
-    int array[20][20];
+    S_GRID_CELL cells[20][20];
     int closed[20][20];
     int open[20][20];
     int parent[20][20];
@@ -22,7 +28,9 @@ S_GRID readFile(std::string fileName){
     {
         for (int j = 0; j < 20; j++)
         {
-            file >> grid.array[i][j];
+            file >> grid.cells[i][j].value;
+            grid.cells[i][j].pos_x = i;
+            grid.cells[i][j].pos_y = j;
         }
     }
 
@@ -37,9 +45,18 @@ int main(){
     {
         for (int j = 0; j < 20; j++)
         {
-            std::cout << grid.array[i][j] << " ";
+            std::cout << grid.cells[i][j].value << " ";
         }
         std:: cout << '\n';
     }
+    for (int i = 0; i < 20; i++)
+    {
+        for (int j = 0; j < 20; j++)
+        {
+            std::cout << "("<<grid.cells[i][j].pos_x << ","<< grid.cells[i][j].pos_y << ")" << " ";
+        }
+        std:: cout << '\n';
+    }
+
     return 0;
 }
