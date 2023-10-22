@@ -1,8 +1,13 @@
 #include <iostream>
 #include <fstream>
+#include <string>
 #include <cmath>
 #include <vector>
 #include <algorithm>
+#include <limits>
+#include <set>
+#include <stack>
+#include <cfloat>
 #include <queue>
 
 #define YMAX 20
@@ -15,9 +20,9 @@ public:
     int posy;
     int value;
     std::vector<Cell *> neighbours;
-    double gValue;
-    double hValue;
-    double fValue;
+    double gValue; // Cost from the start node to this node
+    double hValue; // Estimated cost from this node to the goal
+    double fValue; // f(x) = g(x) + h(x)
 
     Cell *parent;
 
@@ -26,6 +31,7 @@ public:
         int x = posx;
         int y = posy;
 
+        // Define possible moves (up, down, left, and right)
         int dx[] = {1, -1, 0, 0};
         int dy[] = {0, 0, 1, -1};
 
@@ -36,6 +42,7 @@ public:
             int newX = x + dx[i];
             int newY = y + dy[i];
 
+            // Check if the new position is within the bounds of the grid
             if (newX >= 0 && newX < maxX && newY >= 0 && newY < maxY)
             {
                 if (grid[newX][newY].isValid())
@@ -53,7 +60,7 @@ public:
 
     bool isValid()
     {
-        if (value == 5)
+        if (value == 5) // Assuming 0 indicates an obstacle
         {
             return false;
         }
@@ -66,16 +73,17 @@ public:
         return true;
     }
 
-    bool isDestination(const Cell &dest)
+    bool isDestination(Cell dest)
     {
         return posx == dest.posx && posy == dest.posy;
     }
 
     double heuristic(int endX, int endY)
     {
+        // Euclidean distance heuristic
         double dx = posx - endX;
         double dy = posy - endY;
-        return std::sqrt(std::pow(dx, 2) + std::pow(dy, 2));
+        return std::sqrt(dx * dx + dy * dy);
     }
 
     void calculateFunctionValue(int endX, int endY)
@@ -89,25 +97,13 @@ public:
     {
         return posx == other.posx && posy == other.posy;
     }
-
     bool operator!=(const Cell &other) const
     {
         return posx != other.posx or posy != other.posy;
     }
-
     bool operator<(const Cell &other) const
     {
         return fValue < other.fValue;
-    }
-
-    bool operator>(const Cell &other) const
-    {
-        return fValue > other.fValue;
-    }
-
-    bool isBetterThan(const Cell &other) const
-    {
-        return fValue > other.fValue;
     }
 };
 
@@ -121,6 +117,7 @@ public:
     std::vector<Cell *> closedList;
     std::vector<Cell> path;
 
+    // Function to parse the grid from a file
     void parseGrid()
     {
         std::string filename = "grid.txt";
@@ -169,13 +166,13 @@ public:
             for (int j = 0; j < XMAX; j++)
             {
                 map[i][j].gValue = std::numeric_limits<double>::infinity();
-                map[i][j].hValue = map[i][j].heuristic(end.posx, end.posy);
+                map[i][j].heuristic(end.posx, end.posy);
                 map[i][j].updateFValue();
             }
         }
     }
 
-    bool isNotInClosedList(const Cell &cell)
+    bool isNotInClosedList(Cell cell)
     {
         return std::find(closedList.begin(), closedList.end(), &cell) == closedList.end();
     }
@@ -189,6 +186,9 @@ public:
             current = *current.parent;
         }
         path.push_back(start);
+
+        // Reverse the path to start from the beginning
+        std::reverse(path.begin(), path.end());
     }
 
     void aStar()
@@ -199,11 +199,8 @@ public:
         start.gValue = 0;
         start.calculateFunctionValue(end.posx, end.posy);
 
-        auto compareCells = [](const Cell *a, const Cell *b)
-        {
-            return a->isBetterThan(*b);
-        };
-        std::priority_queue<Cell *, std::vector<Cell *>, decltype(compareCells)> openQueue(compareCells);
+        // Use a priority queue to store cells
+        std::priority_queue<Cell *, std::vector<Cell *>, std::greater<Cell *>> openQueue;
 
         openQueue.push(&start);
 
@@ -224,7 +221,7 @@ public:
 
             for (Cell *neighbor : current->neighbours)
             {
-                if (*neighbor == start)
+                if (neighbor == &start)
                 {
                     continue;
                 }
@@ -234,13 +231,13 @@ public:
                     continue;
                 }
 
-                double tentativeGValue = current->gValue + 1.0;
+                double tentativeGValue = current->gValue + 1.0; // Assuming a cost of 1 to move to a neighboring cell
 
                 if (tentativeGValue < neighbor->gValue)
                 {
                     neighbor->parent = current;
-                    neighbor->gValue = tentativeGValue;
-                    neighbor->calculateFunctionValue(end.posx, end.posy);
+                    neighbor->gValue = tentativeGValue;                   // Update the gValue with the new, better value
+                    neighbor->calculateFunctionValue(end.posx, end.posy); // Recalculate fValue based on the new gValue
                     openQueue.push(neighbor);
                     openList.push_back(neighbor);
                 }
@@ -249,14 +246,13 @@ public:
     }
 };
 
-void printPath(const std::vector<Cell *> &path)
+void printPath(std::vector<Cell> &path)
 {
-    for (const Cell *cell : path)
+    for (const Cell &cell : path)
     {
-        std::cout << "Position: (" << cell->posx << "," << cell->posy << ")\n";
+        std::cout << "Position: (" << cell.posx << "," << cell.posy << ")\n";
     }
 }
-
 void printGridWithPath(const Grid &grid)
 {
     for (int i = 0; i < YMAX; i++)
@@ -265,13 +261,13 @@ void printGridWithPath(const Grid &grid)
         {
             const Cell &currentCell = grid.map[i][j];
 
-            if (currentCell == grid.end)
-            {
-                std::cout << "E "; // End
-            }
-            else if (currentCell == grid.start)
+            if (currentCell == grid.start)
             {
                 std::cout << "S "; // Start
+            }
+            else if (currentCell == grid.end)
+            {
+                std::cout << "E "; // End
             }
             else if (std::find(grid.path.begin(), grid.path.end(), currentCell) != grid.path.end())
             {
@@ -303,9 +299,11 @@ int main()
     Grid grid;
     grid.parseGrid();
 
+    // Call your A* algorithm to find the path, which results in a vector of cells.
     grid.aStar();
 
-    printPath(grid.closedList);
+    // Print the path and grid
+    printPath(grid.path);
     printGridWithPath(grid);
 
     return 0;
